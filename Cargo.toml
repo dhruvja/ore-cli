@@ -14,6 +14,10 @@ keywords = ["solana", "crypto", "mining"]
 name = "ore"
 path = "src/main.rs"
 
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "ore_cli"
+
 [features]
 default = []
 admin = []

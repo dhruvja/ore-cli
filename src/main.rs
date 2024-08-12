@@ -1,48 +1,13 @@
-mod args;
-mod balance;
-mod benchmark;
-mod busses;
-mod claim;
-mod close;
-mod config;
-mod cu_limits;
-mod dynamic_fee;
-#[cfg(feature = "admin")]
-mod initialize;
-mod mine;
-mod open;
-mod proof;
-mod rewards;
-mod send_and_confirm;
-mod stake;
-mod transfer;
-mod upgrade;
-mod utils;
-
-use std::{sync::Arc, sync::RwLock};
 use futures::StreamExt;
+use std::{sync::Arc, sync::RwLock};
 use tokio_tungstenite::connect_async;
 use tokio_tungstenite::tungstenite::protocol::Message;
 
-use args::*;
 use clap::{command, Parser, Subcommand};
+use ore_cli::args::*;
+use ore_cli::utils::Tip;
 use solana_client::nonblocking::rpc_client::RpcClient;
-use solana_sdk::{
-    commitment_config::CommitmentConfig,
-    signature::{read_keypair_file, Keypair},
-};
-use utils::Tip;
-
-struct Miner {
-    pub keypair_filepath: Option<String>,
-    pub priority_fee: Option<u64>,
-    pub dynamic_fee_url: Option<String>,
-    pub dynamic_fee: bool,
-    pub rpc_client: Arc<RpcClient>,
-    pub fee_payer_filepath: Option<String>,
-    pub jito_client: Arc<RpcClient>,
-    pub tip: Arc<std::sync::RwLock<u64>>,
-}
+use solana_sdk::commitment_config::CommitmentConfig;
 
 #[derive(Subcommand, Debug)]
 enum Commands {
@@ -145,7 +110,7 @@ struct Args {
 
     #[arg(
         long,
-        value_name = "JITO", 
+        value_name = "JITO",
         help = "Add jito tip to the miner. Defaults to false.",
         global = true
     )]
@@ -193,16 +158,15 @@ async fn main() {
                     if let Ok(tips) = serde_json::from_str::<Vec<Tip>>(&text) {
                         for item in tips {
                             let mut tip = tip_clone.write().unwrap();
-                            *tip =
-                                (item.landed_tips_50th_percentile * (10_f64).powf(9.0)) as u64;
+                            *tip = (item.landed_tips_50th_percentile * (10_f64).powf(9.0)) as u64;
                         }
                     }
                 }
             }
         });
     }
-    
-    let miner = Arc::new(Miner::new(
+
+    let miner = Arc::new(ore_cli::Miner::new(
         Arc::new(rpc_client),
         args.priority_fee,
         Some(default_keypair),
@@ -254,46 +218,6 @@ async fn main() {
         #[cfg(feature = "admin")]
         Commands::Initialize(_) => {
             miner.initialize().await;
-        }
-    }
-}
-
-impl Miner {
-    pub fn new(
-        rpc_client: Arc<RpcClient>,
-        priority_fee: Option<u64>,
-        keypair_filepath: Option<String>,
-        dynamic_fee_url: Option<String>,
-        dynamic_fee: bool,
-        fee_payer_filepath: Option<String>,
-        jito_client: Arc<RpcClient>,
-        tip: Arc<std::sync::RwLock<u64>>,
-    ) -> Self {
-        Self {
-            rpc_client,
-            keypair_filepath,
-            priority_fee,
-            dynamic_fee_url,
-            dynamic_fee,
-            fee_payer_filepath,
-            jito_client,
-            tip,
-        }
-    }
-
-    pub fn signer(&self) -> Keypair {
-        match self.keypair_filepath.clone() {
-            Some(filepath) => read_keypair_file(filepath.clone())
-                .expect(format!("No keypair found at {}", filepath).as_str()),
-            None => panic!("No keypair provided"),
-        }
-    }
-
-    pub fn fee_payer(&self) -> Keypair {
-        match self.fee_payer_filepath.clone() {
-            Some(filepath) => read_keypair_file(filepath.clone())
-                .expect(format!("No fee payer keypair found at {}", filepath).as_str()),
-            None => panic!("No fee payer keypair provided"),
         }
     }
 }
