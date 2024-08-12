@@ -235,7 +235,7 @@ impl Miner {
             .max(0) as u64
     }
 
-    async fn find_bus(&self) -> Pubkey {
+    pub async fn find_bus(&self) -> Pubkey {
         // Fetch the bus with the largest balance
         if let Ok(accounts) = self.rpc_client.get_multiple_accounts(&BUS_ADDRESSES).await {
             let mut top_bus_balance: u64 = 0;
